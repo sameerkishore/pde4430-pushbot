@@ -29,7 +29,7 @@ sudo apt install ros-jazzy-desktop ros-jazzy-ros-gz ros-jazzy-xacro \
 # Workspace
 mkdir -p ~/pde4430_ws/src
 cd ~/pde4430_ws/src
-git clone <REPO_URL> pde4430_pushbot
+git clone https://github.com/sameerkishore/pde4430-pushbot.git pde4430_pushbot
 
 # Build
 cd ~/pde4430_ws
