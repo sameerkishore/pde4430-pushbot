@@ -1,0 +1,170 @@
+<?xml version="1.0"?>
+<!--
+  PushBot: a small differential-drive robot for PDE4430.
+
+  Frames (all follow REP 103 / REP 105: x forward, y left, z up):
+    base_footprint  - on the ground, directly below the wheel axle centre
+    base_link       - at the wheel axle height; the body is built around it
+    left/right_wheel_link, caster_link, lidar_link
+
+  Units: metres, kilograms, radians.
+-->
+<robot name="pushbot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:include filename="$(find pushbot_description)/urdf/inertial_macros.xacro"/>
+
+  <!-- ===================== Parameters ===================== -->
+  <!-- Change these and the whole robot updates. -->
+  <xacro:property name="chassis_length" value="0.40"/>
+  <xacro:property name="chassis_width"  value="0.30"/>
+  <xacro:property name="chassis_height" value="0.10"/>
+  <xacro:property name="chassis_mass"   value="3.0"/>
+  <xacro:property name="ground_clearance" value="0.03"/>
+
+  <xacro:property name="wheel_radius" value="0.06"/>
+  <xacro:property name="wheel_width"  value="0.04"/>
+  <xacro:property name="wheel_mass"   value="0.3"/>
+  <!-- Distance between the wheel centres (left to right) -->
+  <xacro:property name="wheel_separation" value="${chassis_width + wheel_width + 0.01}"/>
+
+  <!-- Sized so the caster touches the ground at the same level as the wheels -->
+  <xacro:property name="caster_radius" value="${wheel_radius - ground_clearance}"/>
+  <xacro:property name="caster_mass"   value="0.1"/>
+  <xacro:property name="caster_x"      value="${-chassis_length / 2.0 + caster_radius + 0.02}"/>
+
+  <xacro:property name="lidar_radius" value="0.04"/>
+  <xacro:property name="lidar_height" value="0.04"/>
+  <xacro:property name="lidar_mass"   value="0.15"/>
+
+  <!-- Chassis centre height, measured from base_link (the wheel axle) -->
+  <xacro:property name="chassis_z" value="${ground_clearance - wheel_radius + chassis_height / 2.0}"/>
+
+  <!-- ===================== Materials (RViz colours) ===================== -->
+  <material name="blue">  <color rgba="0.15 0.35 0.75 1.0"/></material>
+  <material name="black"> <color rgba="0.1 0.1 0.1 1.0"/></material>
+  <material name="grey">  <color rgba="0.6 0.6 0.6 1.0"/></material>
+  <material name="orange"><color rgba="1.0 0.5 0.0 1.0"/></material>
+
+  <!-- ===================== base_footprint and base_link ===================== -->
+  <link name="base_footprint"/>
+
+  <link name="base_link"/>
+
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${wheel_radius}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ===================== Chassis ===================== -->
+  <link name="chassis_link">
+    <visual>
+      <geometry><box size="${chassis_length} ${chassis_width} ${chassis_height}"/></geometry>
+      <material name="blue"/>
+    </visual>
+    <collision>
+      <geometry><box size="${chassis_length} ${chassis_width} ${chassis_height}"/></geometry>
+    </collision>
+    <xacro:inertial_box mass="${chassis_mass}" x="${chassis_length}" y="${chassis_width}" z="${chassis_height}">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </xacro:inertial_box>
+  </link>
+
+  <joint name="chassis_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="chassis_link"/>
+    <origin xyz="0 0 ${chassis_z}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ===================== Drive wheels ===================== -->
+  <!-- A macro so the left and right wheels share one definition.
+       side: "left" or "right"; reflect: +1 for left, -1 for right -->
+  <xacro:macro name="wheel" params="side reflect">
+    <link name="${side}_wheel_link">
+      <visual>
+        <!-- Cylinders point along z by default; roll by 90 degrees so the axis lies along y -->
+        <origin xyz="0 0 0" rpy="${-pi/2} 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+        <material name="black"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="${-pi/2} 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+      </collision>
+      <xacro:inertial_cylinder mass="${wheel_mass}" length="${wheel_width}" radius="${wheel_radius}">
+        <origin xyz="0 0 0" rpy="${-pi/2} 0 0"/>
+      </xacro:inertial_cylinder>
+    </link>
+
+    <joint name="${side}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${side}_wheel_link"/>
+      <origin xyz="0 ${reflect * wheel_separation / 2.0} 0" rpy="0 0 0"/>
+      <!-- Positive rotation about +y drives the robot forward -->
+      <axis xyz="0 1 0"/>
+    </joint>
+
+    <gazebo reference="${side}_wheel_link">
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:wheel side="left"  reflect="1"/>
+  <xacro:wheel side="right" reflect="-1"/>
+
+  <!-- ===================== Caster (rear support) ===================== -->
+  <!-- A frictionless sphere: simpler and more stable in simulation than a swivelling caster -->
+  <link name="caster_link">
+    <visual>
+      <geometry><sphere radius="${caster_radius}"/></geometry>
+      <material name="grey"/>
+    </visual>
+    <collision>
+      <geometry><sphere radius="${caster_radius}"/></geometry>
+    </collision>
+    <xacro:inertial_sphere mass="${caster_mass}" radius="${caster_radius}">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </xacro:inertial_sphere>
+  </link>
+
+  <joint name="caster_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="caster_link"/>
+    <origin xyz="${caster_x} 0 ${caster_radius - wheel_radius}" rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="caster_link">
+    <mu1>0.0</mu1>
+    <mu2>0.0</mu2>
+  </gazebo>
+
+  <!-- ===================== 2D LiDAR ===================== -->
+  <link name="lidar_link">
+    <visual>
+      <geometry><cylinder radius="${lidar_radius}" length="${lidar_height}"/></geometry>
+      <material name="orange"/>
+    </visual>
+    <collision>
+      <geometry><cylinder radius="${lidar_radius}" length="${lidar_height}"/></geometry>
+    </collision>
+    <xacro:inertial_cylinder mass="${lidar_mass}" length="${lidar_height}" radius="${lidar_radius}">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </xacro:inertial_cylinder>
+  </link>
+
+  <joint name="lidar_joint" type="fixed">
+    <parent link="chassis_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0.05 0 ${chassis_height / 2.0 + lidar_height / 2.0}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ===================== Session 1 home task =====================
+       Add your pusher plate here (a fixed link on the front of the chassis).
+       See the Session 1 handout, Part B.
+  -->
+
+  <!-- Gazebo-only parts: plugins and sensor settings -->
+  <xacro:include filename="$(find pushbot_description)/urdf/pushbot.gazebo.xacro"/>
+
+</robot>
