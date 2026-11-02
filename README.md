@@ -54,6 +54,9 @@ ros2 launch pushbot_description display.launch.py
 # Full simulation: Gazebo + RViz + bridge
 ros2 launch pushbot_gazebo sim.launch.py
 
+# Same, in a virtual machine (VMware, Parallels, UTM) if Gazebo flickers
+ros2 launch pushbot_gazebo sim.launch.py render_engine:=ogre
+
 # Drive it (second terminal)
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
 

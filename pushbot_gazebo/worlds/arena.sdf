@@ -12,13 +12,13 @@
       <real_time_factor>1.0</real_time_factor>
     </physics>
 
-    <!-- Core systems. Sensors (with a render engine) is required for the gpu_lidar. -->
+    <!-- Core systems. Sensors is required for the gpu_lidar.
+         No <render_engine> here on purpose: it would override the command line.
+         The engine is chosen at launch (render_engine:=ogre2 or ogre). -->
     <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
     <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
     <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
-    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
-      <render_engine>ogre2</render_engine>
-    </plugin>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors"/>
 
     <scene>
       <ambient>0.6 0.6 0.6 1</ambient>

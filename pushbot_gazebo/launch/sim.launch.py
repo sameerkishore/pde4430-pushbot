@@ -4,6 +4,7 @@
     ros2 launch pushbot_gazebo sim.launch.py rviz:=false
     ros2 launch pushbot_gazebo sim.launch.py headless:=true   # no Gazebo window
     ros2 launch pushbot_gazebo sim.launch.py world:=arena_empty.sdf   # no boxes, for mapping
+    ros2 launch pushbot_gazebo sim.launch.py render_engine:=ogre      # virtual machines: stops flicker
 
 Then drive it from a second terminal:
     ros2 run teleop_twist_keyboard teleop_twist_keyboard
@@ -37,13 +38,17 @@ def generate_launch_description():
     ])
     rviz = LaunchConfiguration('rviz')
     headless = LaunchConfiguration('headless')
+    render_engine = LaunchConfiguration('render_engine')
     x, y, yaw = LaunchConfiguration('x'), LaunchConfiguration('y'), LaunchConfiguration('yaw')
 
     robot_description = ParameterValue(Command(['xacro ', xacro_file]), value_type=str)
 
     # -r starts the simulation running; -s runs the server only (no GUI window)
+    # --render-engine sets both the GUI and the sensors (LiDAR).
+    # ogre2 is the default; ogre (Ogre 1) is more reliable in virtual machines.
     gz_args = PythonExpression([
-        "'-r -s --headless-rendering ' if '", headless, "' == 'true' else '-r '"
+        "'-r -s --headless-rendering ' if '", headless, "' == 'true' else '-r '",
+        " + '--render-engine ", render_engine, " '"
     ])
 
     gazebo = IncludeLaunchDescription(
@@ -89,6 +94,8 @@ def generate_launch_description():
         DeclareLaunchArgument('rviz', default_value='true', description='Start RViz'),
         DeclareLaunchArgument('headless', default_value='false',
                               description='Run Gazebo without its GUI window'),
+        DeclareLaunchArgument('render_engine', default_value='ogre2',
+                              description='Gazebo render engine: ogre2 (default) or ogre (use in VMs)'),
         DeclareLaunchArgument('x', default_value='-3.0', description='Spawn x (m)'),
         DeclareLaunchArgument('y', default_value='0.0', description='Spawn y (m)'),
         DeclareLaunchArgument('yaw', default_value='0.0', description='Spawn heading (rad)'),
