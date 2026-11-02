@@ -1,35 +1,52 @@
 <?xml version="1.0"?>
 <!--
-  Gazebo Harmonic (gz-sim 8) extensions for PushBot.
-  Everything inside <gazebo> tags is ignored by RViz and robot_state_publisher;
-  it is passed through to SDF when the robot is spawned in Gazebo.
+  Simulation extensions for PushBot (Gazebo Harmonic + ros2_control).
 
-  Gazebo topic names below are the *Gazebo* side. ros_gz_bridge
-  (pushbot_gazebo/config/bridge.yaml) connects them to ROS 2 topics.
+  1. <ros2_control>: which joints ros2_control drives, what can be commanded
+     (command interfaces) and what can be read back (state interfaces).
+     The hardware plugin here is the Gazebo one; on a real robot you would
+     swap only this plugin for a motor driver.
+  2. The gz_ros2_control Gazebo plugin: runs the controller_manager inside
+     Gazebo and loads pushbot_control/config/pushbot_controllers.yaml.
+  3. The LiDAR sensor. Its data reaches ROS through ros_gz_bridge
+     (pushbot_gazebo/config/bridge.yaml).
+
+  Everything here is ignored by RViz; robot_state_publisher passes the
+  <ros2_control> block on to the controller_manager.
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <gazebo>
-    <!-- Differential drive: listens for velocity commands, turns the wheels,
-         and publishes odometry and the odom -> base_footprint transform -->
-    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
-      <left_joint>left_wheel_joint</left_joint>
-      <right_joint>right_wheel_joint</right_joint>
-      <wheel_separation>${wheel_separation}</wheel_separation>
-      <wheel_radius>${wheel_radius}</wheel_radius>
-      <max_linear_acceleration>1.0</max_linear_acceleration>
-      <max_angular_acceleration>3.0</max_angular_acceleration>
-      <topic>cmd_vel</topic>
-      <odom_topic>odom</odom_topic>
-      <tf_topic>tf</tf_topic>
-      <frame_id>odom</frame_id>
-      <child_frame_id>base_footprint</child_frame_id>
-      <odom_publish_frequency>30</odom_publish_frequency>
-    </plugin>
+  <ros2_control name="PushBotSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
 
-    <!-- Publishes wheel joint angles so robot_state_publisher can place the wheels in TF -->
-    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
-      <topic>joint_states</topic>
+    <!-- Drive wheels: commanded by velocity (rad/s), report position and velocity -->
+    <joint name="left_wheel_joint">
+      <command_interface name="velocity">
+        <param name="min">-10</param>
+        <param name="max">10</param>
+      </command_interface>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <joint name="right_wheel_joint">
+      <command_interface name="velocity">
+        <param name="min">-10</param>
+        <param name="max">10</param>
+      </command_interface>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <!-- Session 1 home task: add your jaw joints here (position command interface) -->
+
+  </ros2_control>
+
+  <gazebo>
+    <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(find pushbot_control)/config/pushbot_controllers.yaml</parameters>
     </plugin>
   </gazebo>
 

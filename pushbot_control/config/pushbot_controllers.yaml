@@ -1,0 +1,58 @@
+# ros2_control controllers for PushBot.
+#
+# The controller_manager runs inside Gazebo (gz_ros2_control plugin, see
+# pushbot_description/urdf/pushbot.gazebo.xacro) and loads this file.
+# The launch file then starts ("spawns") each controller listed here.
+#
+# Check what is running with:   ros2 control list_controllers
+#                               ros2 control list_hardware_interfaces
+
+controller_manager:
+  ros__parameters:
+    update_rate: 100  # Hz
+
+    # Publishes /joint_states from the wheel encoders (state interfaces)
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    # Turns velocity commands into wheel speeds and integrates odometry
+    diff_drive_controller:
+      type: diff_drive_controller/DiffDriveController
+
+    # Session 1 home task: declare your jaw controller here (see the handout, Part B)
+
+
+diff_drive_controller:
+  ros__parameters:
+    left_wheel_names: ["left_wheel_joint"]
+    right_wheel_names: ["right_wheel_joint"]
+
+    # Must match the robot: wheel_separation and wheel_radius in pushbot.urdf.xacro
+    wheel_separation: 0.35
+    wheel_radius: 0.06
+
+    # Odometry and the odom -> base_footprint transform
+    odom_frame_id: odom
+    base_frame_id: base_footprint
+    enable_odom_tf: true
+    publish_rate: 50.0
+    open_loop: false
+    pose_covariance_diagonal: [0.001, 0.001, 1000000.0, 1000000.0, 1000000.0, 0.01]
+    twist_covariance_diagonal: [0.001, 0.001, 1000000.0, 1000000.0, 1000000.0, 0.01]
+
+    # Stop the wheels if no command arrives for this long (seconds)
+    cmd_vel_timeout: 0.5
+
+    # Speed and acceleration limits
+    linear.x.has_velocity_limits: true
+    linear.x.max_velocity: 0.5
+    linear.x.min_velocity: -0.5
+    linear.x.has_acceleration_limits: true
+    linear.x.max_acceleration: 1.0
+    linear.x.min_acceleration: -1.0
+    angular.z.has_velocity_limits: true
+    angular.z.max_velocity: 2.0
+    angular.z.min_velocity: -2.0
+    angular.z.has_acceleration_limits: true
+    angular.z.max_acceleration: 3.0
+    angular.z.min_acceleration: -3.0

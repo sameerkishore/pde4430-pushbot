@@ -12,8 +12,9 @@ Over three sessions you will build a differential-drive robot in simulation, map
 
 | Package | What it contains | Session |
 |---|---|---|
-| `pushbot_description` | Robot model (URDF/xacro), Gazebo plugins, RViz viewer | 1 |
-| `pushbot_gazebo` | Arena world, spawn launch file, ROS–Gazebo bridge config | 1 |
+| `pushbot_description` | Robot model (URDF/xacro), ros2_control hardware block, LiDAR, RViz viewer | 1 |
+| `pushbot_control` | ros2_control controller config (diff drive, joint states; your jaws) | 1 |
+| `pushbot_gazebo` | Arena world, launch file (spawn + controllers), ROS–Gazebo bridge config | 1 |
 | `pushbot_navigation` | SLAM config (Session 1 home task), Nav2 config (Session 2) | 1–2 |
 | `pushbot_tasks` | Object detection and pushing nodes | 3 (added later) |
 
@@ -24,6 +25,7 @@ Over three sessions you will build a differential-drive robot in simulation, map
 sudo apt update
 sudo apt install ros-jazzy-desktop ros-jazzy-ros-gz ros-jazzy-xacro \
   ros-jazzy-joint-state-publisher-gui ros-jazzy-teleop-twist-keyboard \
+  ros-jazzy-ros2-control ros-jazzy-ros2-controllers ros-jazzy-gz-ros2-control \
   ros-jazzy-slam-toolbox ros-jazzy-navigation2 ros-jazzy-nav2-bringup
 
 # Workspace
@@ -51,14 +53,17 @@ echo "source ~/pde4430_ws/install/setup.bash" >> ~/.bashrc
 # View the robot on its own (no physics)
 ros2 launch pushbot_description display.launch.py
 
-# Full simulation: Gazebo + RViz + bridge
+# Full simulation: Gazebo + controllers + RViz + bridge
 ros2 launch pushbot_gazebo sim.launch.py
 
 # Same, in a virtual machine (VMware, Parallels, UTM) if Gazebo flickers
 ros2 launch pushbot_gazebo sim.launch.py render_engine:=ogre
 
-# Drive it (second terminal)
-ros2 run teleop_twist_keyboard teleop_twist_keyboard
+# Drive it (second terminal). The controller expects TwistStamped, hence stamped:=true
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p stamped:=true
+
+# Check the controllers
+ros2 control list_controllers
 
 # Map the arena (third terminal, with the simulation running)
 ros2 launch pushbot_navigation slam.launch.py
@@ -71,7 +76,7 @@ Each session has git tags so you can catch up if you fall behind:
 | Tag | State |
 |---|---|
 | `s1-start` | Base robot, arena, bridge and teleop working |
-| `s1-home-done` | Pusher plate added, map saved (released after Session 1's deadline) |
+| `s1-home-done` | Jaws and jaw controller added (released after Session 1's deadline) |
 
 To start from a checkpoint without losing your own work:
 
@@ -84,12 +89,14 @@ git checkout s1-start
 
 | ROS topic | Type | Direction | Source |
 |---|---|---|---|
-| `/cmd_vel` | `geometry_msgs/Twist` | ROS → Gazebo | teleop, Nav2 |
-| `/odom` | `nav_msgs/Odometry` | Gazebo → ROS | DiffDrive plugin |
-| `/tf` | `tf2_msgs/TFMessage` | Gazebo → ROS | DiffDrive (`odom → base_footprint`) |
-| `/joint_states` | `sensor_msgs/JointState` | Gazebo → ROS | JointStatePublisher plugin |
-| `/scan` | `sensor_msgs/LaserScan` | Gazebo → ROS | gpu_lidar sensor |
-| `/clock` | `rosgraph_msgs/Clock` | Gazebo → ROS | simulation time |
+| `/cmd_vel` | `geometry_msgs/TwistStamped` | ROS | teleop, Nav2 → `diff_drive_controller` |
+| `/odom` | `nav_msgs/Odometry` | ROS | `diff_drive_controller` |
+| `/tf` | `tf2_msgs/TFMessage` | ROS | `diff_drive_controller` (`odom → base_footprint`), `robot_state_publisher` |
+| `/joint_states` | `sensor_msgs/JointState` | ROS | `joint_state_broadcaster` |
+| `/scan` | `sensor_msgs/LaserScan` | Gazebo → ROS (bridge) | gpu_lidar sensor |
+| `/clock` | `rosgraph_msgs/Clock` | Gazebo → ROS (bridge) | simulation time |
+
+Driving goes through **ros2_control**: the `controller_manager` runs inside Gazebo (the `gz_ros2_control` plugin), and the launch file starts `joint_state_broadcaster` and `diff_drive_controller`. Only the clock and sensors cross the bridge.
 
 TF tree: `map → odom → base_footprint → base_link → {chassis_link → lidar_link, left_wheel_link, right_wheel_link, caster_link}`. The `map → odom` link only exists once SLAM or localisation is running.
 

@@ -1,4 +1,5 @@
-"""Start Gazebo Harmonic with the arena, spawn PushBot and bridge topics to ROS 2.
+"""Start Gazebo Harmonic with the arena, spawn PushBot, start its ros2_control
+controllers and bridge the clock and sensors to ROS 2.
 
     ros2 launch pushbot_gazebo sim.launch.py
     ros2 launch pushbot_gazebo sim.launch.py rviz:=false
@@ -6,15 +7,16 @@
     ros2 launch pushbot_gazebo sim.launch.py world:=arena_empty.sdf   # no boxes, for mapping
     ros2 launch pushbot_gazebo sim.launch.py render_engine:=ogre      # virtual machines: stops flicker
 
-Then drive it from a second terminal:
-    ros2 run teleop_twist_keyboard teleop_twist_keyboard
+Then drive it from a second terminal (the controller expects TwistStamped):
+    ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p stamped:=true
 """
 import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, RegisterEventHandler
 from launch.conditions import IfCondition
+from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
@@ -73,6 +75,37 @@ def generate_launch_description():
         output='screen',
     )
 
+    # ros2_control: the controller_manager runs inside Gazebo (gz_ros2_control
+    # plugin in the URDF). Once the robot exists, start the controllers.
+    joint_state_broadcaster = Node(
+        package='controller_manager',
+        executable='spawner',
+        arguments=['joint_state_broadcaster'],
+        output='screen',
+    )
+
+    # The controller's topics are /diff_drive_controller/cmd_vel and
+    # /diff_drive_controller/odom; remap them to the usual /cmd_vel and /odom.
+    diff_drive_controller = Node(
+        package='controller_manager',
+        executable='spawner',
+        arguments=['diff_drive_controller',
+                   '--controller-ros-args',
+                   '-r /diff_drive_controller/cmd_vel:=/cmd_vel '
+                   '-r /diff_drive_controller/odom:=/odom'],
+        output='screen',
+    )
+
+    # Session 1 home task: add a spawner for your jaw controller here,
+    # and add it to the on_exit list below.
+
+    start_controllers = RegisterEventHandler(
+        OnProcessExit(
+            target_action=spawn,
+            on_exit=[joint_state_broadcaster, diff_drive_controller],
+        )
+    )
+
     bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -102,6 +135,7 @@ def generate_launch_description():
         gazebo,
         robot_state_publisher,
         spawn,
+        start_controllers,
         bridge,
         rviz_node,
     ])

@@ -160,11 +160,11 @@
   </joint>
 
   <!-- ===================== Session 1 home task =====================
-       Add your pusher plate here (a fixed link on the front of the chassis).
-       See the Session 1 handout, Part B.
+       Add your jaws here: a fixed plate on the front of the chassis and two
+       jaws on prismatic joints. See the Session 1 handout, Part B.
   -->
 
-  <!-- Gazebo-only parts: plugins and sensor settings -->
+  <!-- Simulation parts: ros2_control hardware, Gazebo plugin, LiDAR sensor -->
   <xacro:include filename="$(find pushbot_description)/urdf/pushbot.gazebo.xacro"/>
 
 </robot>
