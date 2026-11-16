@@ -4,7 +4,7 @@ project(pushbot_navigation)
 find_package(ament_cmake REQUIRED)
 
 # No code to compile: just install the folders so ros2 launch / $(find ...) can locate them
-install(DIRECTORY config launch maps
+install(DIRECTORY config launch maps rviz
   DESTINATION share/${PROJECT_NAME}
 )
 
